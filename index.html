@@ -1,0 +1,1097 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Handoff prototype</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Instrument+Sans:wght@400;500;600;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  /* Layout idea: a dark stage bar outside the product holds the view-as switch; below it a rail + canvas + side-panel assistant frame. */
+  --ink:#1a2226;
+  --ink-2:#4b585f;
+  --ink-3:#7a878e;
+  --line:#e5e8ea;
+  --line-2:#d3d9dc;
+  --bg:#ffffff;
+  --rail:#f4f5f5;
+  --hover:#e8ebec;
+  --accent:#0b6e69;
+  --accent-soft:#e2f1ef;
+  --warn:#9a5a06;
+  --warn-soft:#fbf0dc;
+  --ok:#1d7448;
+  --ok-soft:#e0f2e8;
+  --crit:#b3261e;
+  --crit-soft:#fbe6e4;
+  --lock:#eceff0;
+  --stage:#16212a;
+  --font:'Instrument Sans',system-ui,-apple-system,'Segoe UI',sans-serif;
+  color-scheme:light;
+}
+*{box-sizing:border-box}
+html,body{height:100%;margin:0}
+body{font-family:var(--font);color:var(--ink);background:var(--stage);display:flex;flex-direction:column;font-size:14px;line-height:1.45}
+button{font-family:inherit;color:inherit}
+.i{width:18px;height:18px;fill:none;stroke:currentColor;stroke-width:1.7;stroke-linecap:round;stroke-linejoin:round;flex:none}
+.i.sm{width:14px;height:14px}
+.i.flip{transform:rotate(180deg)}
+
+/* stage bar (outside the product) */
+.stage{display:flex;align-items:center;gap:14px 20px;padding:8px 16px;background:var(--stage);color:#e8eef0;flex-wrap:wrap}
+.stage .t{font-weight:600;font-size:13px}
+.stage .sub{color:#8fa1a9;font-size:12px}
+.seg{display:flex;gap:4px;background:#222f39;border-radius:12px;padding:3px;flex-wrap:wrap}
+.seg button{border:0;background:transparent;color:#b9c6cb;padding:5px 10px 5px 6px;border-radius:9px;font-size:12.5px;cursor:pointer;display:flex;gap:8px;align-items:center;text-align:left}
+.seg button b{display:block;font-weight:600;line-height:1.1}
+.seg button small{display:block;color:#8fa1a9;font-size:11px;line-height:1.2}
+.seg button.on{background:#f4f6f5;color:#10181c}
+.seg button.on small{color:#5d6b72}
+.stage .grow{flex:1}
+.sbtn{border:1px solid #33434e;background:transparent;color:#d5dfe3;border-radius:9px;padding:6px 11px;font-size:12.5px;cursor:pointer}
+.sbtn:hover{background:#222f39}
+.sbtn.on{background:#1f4b49;border-color:#2d6b68;color:#fff}
+
+/* product frame */
+.app{flex:1;min-height:0;display:grid;grid-template-columns:248px 1fr;background:var(--bg);margin:0 8px;border-radius:12px 12px 0 0;overflow:hidden;position:relative}
+.app.p-open{grid-template-columns:248px 1fr 470px}
+.rail{background:var(--rail);padding:14px 10px 12px;display:flex;flex-direction:column;gap:2px;min-height:0;overflow:auto}
+.rail .top{display:flex;align-items:center;justify-content:space-between;padding:2px 6px 12px 8px}
+.logo{display:flex;gap:8px;align-items:center;font-weight:700;letter-spacing:-.01em;font-size:15px}
+.logo i{width:22px;height:22px;border-radius:7px;background:var(--accent);display:grid;place-items:center}
+.logo i:after{content:"";width:8px;height:8px;border-radius:50%;background:#fff}
+.rail .tools{display:flex;gap:2px}
+.nav{display:flex;align-items:center;gap:10px;padding:8px 10px;border-radius:9px;cursor:pointer;border:0;background:none;font-size:14.5px;text-align:left;width:100%;position:relative}
+.nav:hover{background:var(--hover)}
+.nav.on{background:var(--hover);font-weight:600}
+.nav .tx{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.nav.sub{font-size:14px;color:var(--ink)}
+.nav .dotnew{margin-left:auto;width:8px;height:8px;border-radius:50%;background:var(--accent)}
+.badge{margin-left:auto;background:var(--accent);color:#fff;border-radius:999px;font-size:11px;padding:1px 7px;font-weight:600}
+.lbl{color:var(--ink-3);font-size:12.5px;padding:14px 10px 4px}
+.spacer{flex:1}
+.me{display:flex;align-items:center;gap:10px;padding:8px 10px;font-size:14.5px}
+
+.main{position:relative;display:flex;flex-direction:column;min-width:0;min-height:0;background:var(--bg)}
+.mhead{display:flex;align-items:center;justify-content:space-between;padding:10px 20px;min-height:52px;gap:12px}
+.crumb{display:flex;align-items:center;gap:10px;color:var(--ink-2);font-size:15px}
+.hr{display:flex;align-items:center;gap:8px}
+.scroll{flex:1;overflow:auto;min-height:0}
+.col{max-width:780px;margin:0 auto;padding:6px 28px 28px}
+.col.wide{max-width:980px}
+.homewrap{max-width:780px;margin:0 auto;padding:11vh 28px 40px}
+.homewrap h1{font-size:34px;font-weight:600;letter-spacing:-.02em;margin:0 0 22px;text-wrap:balance}
+h2{font-size:22px;font-weight:600;letter-spacing:-.01em;margin:6px 0 4px;text-wrap:balance}
+.lead{color:var(--ink-2);margin:0 0 16px}
+.dock{padding:6px 28px 18px;max-width:836px;width:100%;margin:0 auto}
+
+/* composer */
+.comp{border:1px solid var(--line-2);border-radius:20px;padding:14px 16px 10px;background:#fff;box-shadow:0 1px 2px rgba(20,32,38,.05);position:relative}
+.comp textarea{width:100%;border:0;outline:0;resize:none;font:inherit;font-size:15.5px;min-height:26px;max-height:160px;background:transparent;color:var(--ink);padding:0;display:block}
+.comp .tl{display:flex;align-items:center;gap:4px;margin-top:8px}
+.tbtn{border:0;background:none;padding:6px;border-radius:8px;display:grid;place-items:center;color:var(--ink-2);cursor:pointer;position:relative}
+.tbtn:hover{background:var(--hover)}
+.mode{display:inline-flex;align-items:center;gap:6px;padding:5px 10px;border-radius:999px;font-size:14px;border:0;background:none;cursor:pointer}
+.mode:hover{background:var(--hover)}
+.mode.handoff{background:var(--accent-soft);color:var(--accent);font-weight:600;cursor:default}
+.mode.handoff button{border:0;background:none;padding:0;display:grid;place-items:center;cursor:pointer;color:var(--accent)}
+.sendb{margin-left:auto;width:34px;height:34px;border-radius:50%;border:0;background:var(--accent);color:#fff;display:grid;place-items:center;cursor:pointer}
+.sendb:hover{background:#095a56}
+.scopednote{display:flex;gap:6px;align-items:center;color:var(--ink-2);font-size:12.5px;padding:0 4px}
+.slash{position:absolute;left:12px;top:calc(100% + 6px);background:#fff;border:1px solid var(--line-2);border-radius:14px;padding:6px;box-shadow:0 8px 24px rgba(20,32,38,.12);z-index:10;width:340px}
+.slash.up{top:auto;bottom:calc(100% + 6px)}
+.slash[hidden]{display:none}
+.sitem{display:flex;gap:10px;align-items:center;border:0;background:none;padding:8px 10px;border-radius:9px;width:100%;text-align:left;cursor:pointer}
+.sitem:hover{background:var(--hover)}
+.sitem small{display:block;color:var(--ink-3);font-size:12.5px}
+.sitem.dis{opacity:.55}
+.chips{display:flex;gap:10px;flex-wrap:wrap;margin-top:18px}
+.chipb{display:inline-flex;gap:8px;align-items:center;padding:10px 16px;border-radius:14px;background:#f2f4f4;border:1px solid transparent;cursor:pointer;font-size:14.5px}
+.chipb:hover{background:var(--hover)}
+.chipb.hand{background:var(--accent-soft);border-color:#b7dbd6;color:#07514d;font-weight:600}
+.chipb.dis{opacity:.5;cursor:default}
+.newtag{font-size:10.5px;background:var(--accent);color:#fff;padding:1px 6px;border-radius:99px;font-weight:600}
+.modenote{margin-top:14px;display:flex;flex-direction:column;gap:10px;align-items:flex-start}
+.modenote .info{color:var(--ink-2);font-size:13.5px;display:flex;gap:8px;align-items:center}
+.suggest{border:1px dashed #8cc3bd;background:#f3faf9;border-radius:14px;padding:10px 14px;cursor:pointer;text-align:left;font-size:14.5px;color:#07514d;line-height:1.4}
+.suggest:hover{background:var(--accent-soft)}
+.try{margin-top:16px;color:var(--ink-2);font-size:13.5px}
+
+/* chat */
+.msgs{display:flex;flex-direction:column;gap:20px}
+.ubub{align-self:flex-end;background:#f2f4f4;border-radius:22px;padding:13px 20px;max-width:82%;font-size:15px;line-height:1.5}
+.swork{display:inline-flex;align-items:center;gap:6px;color:var(--ink-2);font-size:15px;cursor:pointer;background:none;border:0;padding:2px 0}
+.sgroup h5{font-size:14.5px;font-weight:600;margin:16px 0 8px}
+.qpill{display:inline-flex;gap:8px;align-items:center;background:#f2f4f4;border-radius:12px;padding:7px 12px;font-size:13px;margin-bottom:8px}
+.row{display:flex;gap:8px;flex-wrap:wrap;align-items:center}
+.src{display:inline-flex;align-items:center;gap:8px;background:#f2f4f4;border-radius:12px;padding:6px 12px 6px 8px;font-size:13px;border:0;cursor:pointer;max-width:100%;text-align:left}
+button.src:hover{background:var(--hover)}
+.src.more{padding:6px 12px;cursor:default}
+.src.locked{background:var(--lock);color:var(--ink-2);cursor:default}
+.src.good{background:var(--ok-soft);color:var(--ok);cursor:default}
+.ico{width:18px;height:18px;border-radius:5px;display:grid;place-items:center;font-size:10.5px;font-weight:700;color:#fff;flex:none;background:#6b7c85}
+.ico[data-t=call]{background:#6d4cc2}.ico[data-t=mail]{background:#c2453a}.ico[data-t=sheet]{background:#238a52}.ico[data-t=ticket]{background:#2f6db5}.ico[data-t=doc]{background:#3b82c4}.ico[data-t=crm]{background:#b9791d}.ico[data-t=chat]{background:#7a4fb0}.ico[data-t=notes]{background:#0f7a74}.ico[data-t=note]{background:#0b6e69}
+.src.locked .ico{background:#8d99a0}
+.working{display:flex;gap:8px;align-items:center;color:var(--ink-2);margin-top:14px}
+.dots{width:14px;height:14px;border-radius:50%;border:2px solid var(--line-2);border-top-color:var(--accent);animation:spin .8s linear infinite}
+@keyframes spin{to{transform:rotate(360deg)}}
+@media (prefers-reduced-motion:reduce){.dots{animation:none}}
+.prose{font-size:15.5px;line-height:1.62}
+.prose p{margin:0 0 12px}
+.acts{display:flex;gap:4px;margin-top:10px;align-items:center}
+.ibtn{border:0;background:none;width:34px;height:34px;border-radius:9px;display:grid;place-items:center;color:var(--ink-2);cursor:pointer}
+.ibtn:hover{background:var(--hover)}
+.ibtn.hl{background:var(--accent-soft);color:var(--accent);width:auto;padding:0 12px;gap:6px;display:inline-flex;align-items:center;font-size:13.5px;font-weight:600}
+
+/* buttons, tags, people */
+.btn{border:1px solid var(--line-2);background:#fff;border-radius:10px;padding:7px 13px;font-size:13.5px;cursor:pointer;display:inline-flex;gap:6px;align-items:center}
+.btn:hover{background:#f5f7f7}
+.btn.pri{background:var(--accent);border-color:var(--accent);color:#fff;font-weight:600}
+.btn.pri:hover{background:#095a56}
+.btn[disabled]{opacity:.45;cursor:not-allowed}
+.btn.dng{color:var(--crit);border-color:#e6bcb8}
+.btn.dng:hover{background:var(--crit-soft)}
+.btn.sm{padding:5px 10px;font-size:13px}
+.btn.on{background:var(--accent-soft);border-color:#9fd0c9;color:var(--accent);font-weight:600}
+.lnk{border:0;background:none;color:var(--accent);cursor:pointer;padding:0;text-decoration:underline;font-size:inherit}
+.tag{font-size:12px;padding:3px 9px;border-radius:99px;background:#f0f2f2;color:var(--ink-2);display:inline-flex;gap:6px;align-items:center;white-space:nowrap}
+.tag.warn{background:var(--warn-soft);color:var(--warn)}
+.tag.ok{background:var(--ok-soft);color:var(--ok)}
+.tag.lock{background:var(--lock)}
+.tag.acc{background:var(--accent-soft);color:var(--accent)}
+.tag.crit{background:var(--crit-soft);color:var(--crit)}
+.person{display:inline-flex;gap:6px;align-items:center;font-size:13px;background:#f2f4f4;border-radius:99px;padding:3px 10px 3px 3px}
+.av{width:22px;height:22px;border-radius:50%;display:grid;place-items:center;font-size:9.5px;font-weight:700;color:#fff;background:var(--c,#6b7c85);flex:none}
+.av.lg{width:32px;height:32px;font-size:12px}
+.stage .av{width:26px;height:26px;font-size:10px}
+
+/* cards */
+.card{border:1px solid var(--line);border-radius:14px;padding:14px;background:#fff;margin-bottom:12px}
+.card.kept{border-color:#a4d2cc;box-shadow:inset 3px 0 0 var(--accent)}
+.card.locked{background:#f7f8f8;border-style:dashed}
+.card.removed{background:#fafbfb;color:var(--ink-3);display:flex;align-items:center;justify-content:space-between;gap:10px;padding:10px 14px}
+.card.done{border-color:#9bd0b3;box-shadow:inset 3px 0 0 var(--ok)}
+.card.pending{border-color:#e2c58e;box-shadow:inset 3px 0 0 #d9a441}
+.chead{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}
+.chead h4{margin:0;font-size:15.5px;font-weight:600;text-wrap:balance}
+.meta{display:flex;gap:6px;flex-wrap:wrap;margin:8px 0 2px}
+.sec{margin-top:10px}
+.sec .k{font-size:12px;font-weight:600;color:var(--ink-3);margin-bottom:3px}
+.sec p{margin:0;font-size:14px;line-height:1.5}
+.confline{margin-top:8px;font-size:12.5px;color:var(--ink-2)}
+.cbtns{display:flex;gap:8px;margin-top:14px;flex-wrap:wrap}
+.ed{width:100%;font:inherit;font-size:14px;border:1px solid var(--line-2);border-radius:10px;padding:8px 10px;resize:vertical;outline:0}
+.ed:focus{border-color:var(--accent)}
+.callout{margin-top:10px;border-radius:10px;padding:9px 12px;font-size:13.5px;background:#f2f4f4}
+.callout.ok{background:var(--ok-soft);color:#14542f}
+.callout.warn{background:var(--warn-soft);color:#6e4104}
+.callout.acc{background:var(--accent-soft);color:#07514d}
+.banner{display:flex;gap:12px;align-items:flex-start;background:var(--accent-soft);color:#07514d;border-radius:12px;padding:12px 14px;margin:12px 0 14px;font-size:13.5px}
+.banner b{font-weight:600}
+.banner.crit{background:var(--crit-soft);color:#7d1b15}
+.banner.warn{background:var(--warn-soft);color:#6e4104}
+.bar{height:6px;border-radius:99px;background:var(--line);overflow:hidden;flex:1;max-width:180px}
+.bar i{display:block;height:100%;background:var(--ok)}
+.prog{display:flex;gap:10px;align-items:center;margin:4px 0 14px;color:var(--ink-2);font-size:13px}
+.qa{margin-top:10px;display:flex;flex-direction:column;gap:14px}
+.qa .ans{border:1px solid var(--line);border-radius:14px;padding:12px 14px}
+.qa .ans p{margin:0 0 8px;font-size:14.5px;line-height:1.55}
+.sugs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:10px}
+.sug{border:1px solid var(--line-2);background:#fff;border-radius:99px;padding:6px 12px;font-size:13px;cursor:pointer}
+.sug:hover{background:#f5f7f7}
+
+/* side panel */
+.panel{display:none;flex-direction:column;border-left:1px solid var(--line);background:#fff;min-height:0}
+.p-open .panel{display:flex}
+.phead{display:flex;align-items:center;justify-content:space-between;padding:12px 16px;border-bottom:1px solid var(--line);gap:8px}
+.phead .ttl{display:flex;gap:10px;align-items:center;font-weight:600;font-size:15px}
+.pbody{flex:1;overflow:auto;padding:14px 16px}
+.pfoot{border-top:1px solid var(--line);padding:12px 16px;display:flex;align-items:center;justify-content:space-between;gap:10px;background:#fff}
+.pfoot .hint{font-size:12.5px;color:var(--ink-2)}
+.recip{display:flex;gap:12px;align-items:center;background:#f6f8f8;border-radius:12px;padding:10px 12px}
+.recip small{display:block;color:var(--ink-2);font-size:12.5px}
+.psum{margin:12px 0 4px;font-size:13px;color:var(--ink-2)}
+.psec{font-size:14px;font-weight:600;margin:18px 0 8px}
+.note{border:1px solid var(--line);border-radius:12px;padding:10px 12px;margin-bottom:10px}
+.note .nh{display:flex;align-items:center;justify-content:space-between;gap:8px;margin-bottom:6px;font-size:13px}
+.note label{display:flex;gap:6px;align-items:center;font-size:12.5px;color:var(--ink-2);cursor:pointer}
+
+/* tables, admin */
+.tbl{width:100%;border-collapse:collapse;font-size:13.5px}
+.tbl th{text-align:left;font-weight:600;color:var(--ink-3);font-size:12px;padding:8px 10px;border-bottom:1px solid var(--line)}
+.tbl td{padding:11px 10px;border-bottom:1px solid var(--line);vertical-align:middle}
+.tbl tr.rw{cursor:pointer}
+.tbl tr.rw:hover td{background:#f7f9f9}
+.tblwrap{overflow-x:auto}
+.kill{display:flex;align-items:center;justify-content:space-between;gap:16px;border:1px solid var(--line);border-radius:14px;padding:14px 16px;margin:14px 0 18px}
+.kill p{margin:2px 0 0;color:var(--ink-2);font-size:13.5px}
+.sw{width:44px;height:26px;border-radius:99px;border:0;background:#c5ced2;position:relative;cursor:pointer;flex:none}
+.sw:after{content:"";position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:#fff;transition:left .15s}
+.sw.on{background:var(--accent)}
+.sw.on:after{left:21px}
+.frow{display:flex;gap:10px;align-items:center;margin-bottom:8px}
+select{font:inherit;font-size:13.5px;border:1px solid var(--line-2);border-radius:9px;padding:6px 10px;background:#fff}
+.drawer{position:absolute;right:0;top:0;bottom:0;width:430px;max-width:100%;background:#fff;border-left:1px solid var(--line);box-shadow:-10px 0 30px rgba(20,32,38,.1);z-index:30;display:flex;flex-direction:column}
+.drawer .db{flex:1;overflow:auto;padding:14px 18px}
+.tl2{list-style:none;margin:10px 0 0;padding:0}
+.tl2 li{display:grid;grid-template-columns:118px 1fr;gap:10px;padding:8px 0;border-bottom:1px solid var(--line);font-size:13px}
+.tl2 time{color:var(--ink-3);font-size:12px}
+.tl2 b{font-weight:600}
+.stat{display:flex;gap:10px;flex-wrap:wrap;margin:10px 0}
+.stat div{border:1px solid var(--line);border-radius:12px;padding:8px 14px;min-width:120px}
+.stat b{display:block;font-size:20px;font-weight:600}
+.stat span{color:var(--ink-2);font-size:12.5px}
+
+/* overlays */
+.scrim{position:absolute;inset:0;background:rgba(18,26,30,.42);display:grid;place-items:center;z-index:50;padding:16px}
+.modal{background:#fff;border-radius:16px;padding:22px;width:min(480px,100%);box-shadow:0 20px 50px rgba(0,0,0,.25)}
+.modal h3{margin:0 0 6px;font-size:18px;font-weight:600}
+.modal ul{margin:10px 0 14px;padding-left:18px;color:var(--ink-2);font-size:14px}
+.modal li{margin:4px 0}
+.mbtn{display:flex;gap:8px;justify-content:flex-end;margin-top:14px}
+.bellwrap{position:relative}
+.bdot{position:absolute;top:4px;right:4px;width:9px;height:9px;border-radius:50%;background:var(--crit);border:2px solid #fff}
+.pop{position:absolute;right:0;top:calc(100% + 6px);width:340px;background:#fff;border:1px solid var(--line-2);border-radius:14px;box-shadow:0 10px 30px rgba(20,32,38,.14);z-index:20;padding:6px}
+.pop .it{display:block;width:100%;text-align:left;border:0;background:none;padding:10px 12px;border-radius:10px;cursor:pointer}
+.pop .it:hover{background:var(--hover)}
+.pop .it small{display:block;color:var(--ink-3);font-size:12.5px;margin-top:2px}
+.pop .empty{padding:14px;color:var(--ink-3);font-size:13.5px}
+#toast{position:fixed;left:50%;bottom:26px;transform:translateX(-50%);background:var(--ink);color:#fff;padding:10px 16px;border-radius:12px;font-size:13.5px;z-index:100;opacity:0;pointer-events:none;transition:opacity .2s;max-width:90vw}
+#toast.show{opacity:1}
+#coach{position:fixed;z-index:90;width:268px;background:#16212a;color:#f1f5f6;border-radius:12px;padding:12px 14px;font-size:13.5px;line-height:1.45;box-shadow:0 10px 30px rgba(0,0,0,.3)}
+#coach[hidden]{display:none}
+#coach:before{content:"";position:absolute;left:var(--ax,40px);width:12px;height:12px;background:#16212a;transform:rotate(45deg);top:-6px}
+#coach.above:before{top:auto;bottom:-6px}
+#coach button{margin-top:8px;border:1px solid #3a4c58;background:transparent;color:#fff;border-radius:8px;padding:4px 10px;cursor:pointer;font-size:12.5px}
+.coach-target{outline:2px solid #1aa59c !important;outline-offset:2px;border-radius:10px;box-shadow:0 0 0 6px rgba(26,165,156,.2)}
+.sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0)}
+button:focus-visible,textarea:focus-visible,select:focus-visible{outline:2px solid #1aa59c;outline-offset:2px}
+
+@media (max-width:900px){
+  .app,.app.p-open{grid-template-columns:60px 1fr}
+  .rail .tx,.rail .lbl,.rail .logo span,.rail .tools,.badge{display:none}
+  .p-open .panel{position:absolute;right:0;top:0;bottom:0;width:min(470px,100%);z-index:25;box-shadow:-10px 0 30px rgba(20,32,38,.15)}
+  .homewrap{padding-top:6vh}
+}
+@media (max-width:560px){
+  .app,.app.p-open{grid-template-columns:1fr}
+  .rail{display:none}
+  .col{padding:6px 16px 20px}
+  .homewrap{padding:4vh 16px}
+  .homewrap h1{font-size:26px}
+  .dock{padding:6px 12px 12px}
+}
+</style>
+</head>
+<body>
+<div class="stage" id="stage"></div>
+<div class="app" id="app"></div>
+<div id="toast" role="status" aria-live="polite"></div>
+<div id="coach" hidden></div>
+
+<script>
+(function(){
+'use strict';
+
+/* ---------- helpers ---------- */
+var $=function(s){return document.querySelector(s)};
+var esc=function(s){return String(s).replace(/[&<>"]/g,function(c){return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;'}[c]})};
+var IC={
+ home:'<path d="M3 11l9-8 9 8"/><path d="M5 10v10h14V10"/>',
+ search:'<circle cx="11" cy="11" r="7"/><path d="M20 20l-3.5-3.5"/>',
+ agents:'<path d="M5 4l14 6-6 2-2 6z"/>',
+ people:'<circle cx="9" cy="8" r="3.2"/><path d="M3 20c0-3.3 2.7-6 6-6s6 2.7 6 6"/><path d="M16 5.2a3 3 0 010 5.6M18 14.5c1.8.8 3 2.6 3 5.5"/>',
+ content:'<path d="M12 3l9 5-9 5-9-5z"/><path d="M3 13l9 5 9-5"/>',
+ handoff:'<path d="M4 8h13l-3-3"/><path d="M20 16H7l3 3"/>',
+ admin:'<path d="M12 3l8 3v6c0 5-3.5 8-8 9-4.5-1-8-4-8-9V6z"/>',
+ plus:'<path d="M12 5v14M5 12h14"/>',
+ globe:'<circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c3 3 3 15 0 18M12 3c-3 3-3 15 0 18"/>',
+ apps:'<rect x="5" y="3" width="10" height="18" rx="1"/><path d="M15 9h4v12h-4M8 7h4M8 11h4M8 15h4"/>',
+ bolt:'<path d="M13 3L5 14h6l-1 7 8-11h-6z"/>',
+ send:'<path d="M12 19V5M6 11l6-6 6 6"/>',
+ lock:'<rect x="5" y="11" width="14" height="9" rx="2"/><path d="M8 11V8a4 4 0 018 0v3"/>',
+ check:'<path d="M5 12.5l4.5 4.5L19 7"/>',
+ x:'<path d="M6 6l12 12M18 6L6 18"/>',
+ chevr:'<path d="M9 6l6 6-6 6"/>',
+ chevd:'<path d="M6 9l6 6 6-6"/>',
+ copy:'<rect x="8" y="8" width="12" height="12" rx="2"/><path d="M16 8V6a2 2 0 00-2-2H6a2 2 0 00-2 2v8a2 2 0 002 2h2"/>',
+ up:'<path d="M7 11v9H4v-9zM7 11l4-8c1.5 0 2.5 1 2.2 2.6L12.7 9H19a2 2 0 012 2.3l-1.2 7A2 2 0 0117.8 20H7"/>',
+ canvas:'<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5M9 14h6M9 17h4"/>',
+ share:'<circle cx="6" cy="12" r="2.5"/><circle cx="18" cy="6" r="2.5"/><circle cx="18" cy="18" r="2.5"/><path d="M8.2 10.8l7.6-3.6M8.2 13.2l7.6 3.6"/>',
+ bell:'<path d="M6 16V11a6 6 0 0112 0v5l2 2H4z"/><path d="M10 21h4"/>',
+ dots:'<circle cx="5" cy="12" r="1.2"/><circle cx="12" cy="12" r="1.2"/><circle cx="19" cy="12" r="1.2"/>',
+ edit:'<path d="M4 20h4L19 9l-4-4L4 16z"/>',
+ panel:'<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M14 4v16"/>',
+ chatplus:'<circle cx="12" cy="12" r="9"/><path d="M12 8v8M8 12h8"/>',
+ doc:'<path d="M6 3h8l5 5v13H6z"/><path d="M14 3v5h5"/>',
+ user:'<circle cx="12" cy="8" r="3.5"/><path d="M5 20c0-3.9 3.1-7 7-7s7 3.1 7 7"/>'
+};
+function ic(n,c){return '<svg class="i '+(c||'')+'" viewBox="0 0 24 24" aria-hidden="true">'+IC[n]+'</svg>'}
+
+/* ---------- data (all invented) ---------- */
+var PEOPLE={
+ maya:{name:'Maya Okafor',first:'Maya',role:'Senior Account Executive',ini:'MO',c:'#0b6e69'},
+ dev:{name:'Dev Raman',first:'Dev',role:'Account Executive',ini:'DR',c:'#3f5fa8'},
+ priya:{name:'Priya Nair',first:'Priya',role:'Finance Partner',ini:'PN',c:'#9a4f8f'},
+ noor:{name:'Noor Haddad',first:'Noor',role:'IT Administrator',ini:'NH',c:'#a8602f'},
+ ana:{name:'Ana Ruiz',first:'Ana',role:'Deal Desk',ini:'AR',c:'#5e7a3a'},
+ jonas:{name:'Jonas Weber',first:'Jonas',role:'Solutions Engineer',ini:'JW',c:'#4b6f8a'},
+ sam:{name:'Sam Ito',first:'Sam',role:'Support Lead',ini:'SI',c:'#7a5c9e'},
+ carla:{name:'Carla Mendes',first:'Carla',role:'Sales Director',ini:'CM',c:'#8a6a2f'}
+};
+var ROLE_LABEL={maya:'Sender',dev:'Receiver',priya:'Waiting on the quote',noor:'Admin'};
+var SRC={
+ s1:{l:'Halvorsen pricing call, Oct 21',t:'call'},
+ s2:{l:'RE: Renewal pricing, Oct 24',t:'mail'},
+ s3:{l:'Halvorsen deal sheet',t:'sheet'},
+ s4:{l:'Case #88213, export delay',t:'ticket'},
+ s5:{l:'Release notes 4.18',t:'doc'},
+ s6:{l:'ENG-4412, SAML SSO',t:'ticket'},
+ s7:{l:'Security review checklist',t:'doc'},
+ s8:{l:'SSO requirements, Oct 15',t:'mail'},
+ s9:{l:'Account review, Oct 28',t:'notes'},
+ s10:{l:'Contact: Lena Brandt',t:'crm'},
+ s11:{l:'#deal-desk-private',t:'chat',locked:true},
+ note:{l:'Handoff note approved by Maya',t:'note'}
+};
+var TL={call:'C',mail:'M',sheet:'S',ticket:'T',doc:'D',crm:'R',chat:'#',notes:'N',note:'H'};
+var ITEMS0=[
+ {id:'quote',title:'Send the 3-year renewal quote',due:'Due Nov 14',wait:{p:'priya'},
+  why:'The contract ends Dec 31. Halvorsen objected to a 12% uplift in October and asked for a 3-year quote with a lower cap.',
+  callouts:'On the Oct 21 call Maya said the cap would likely hold under 5%. That is not in writing. The only written offer is 8% (Oct 24 email). Quoting below list needs deal desk approval first.',
+  ask:['priya','ana'],inferred:false,src:['s1','s2','s3'],conf:'High',confNote:'3 sources agree'},
+ {id:'export',title:'Tell Halvorsen the export delay is fixed',due:'Due Nov 12',wait:{t:'Halvorsen ops team'},
+  why:'Halvorsen’s ops team named slow data exports as a reason to hesitate on the renewal. A fix shipped Nov 2, but nobody has told them.',
+  callouts:'Their admin, Rui Tan, opened the case and prefers a call to email. Confirm the fix on their account before you call.',
+  ask:['sam'],inferred:false,src:['s4','s5'],conf:'High',confNote:'fix confirmed in release notes'},
+ {id:'sso',title:'Confirm the SSO (SAML) timeline',due:'Due Nov 21',wait:{t:'Halvorsen IT team'},
+  why:'Halvorsen’s IT team made SAML single sign-on by Q1 a condition of their security review.',
+  callouts:'The engineering ticket slipped one sprint. Don’t promise a date until Jonas confirms. The ticket was last updated 11 days ago.',
+  ask:['jonas'],inferred:false,src:['s6','s7','s8'],conf:'Medium',confNote:'ticket status may be stale'},
+ {id:'exec',title:'Meet Lena Brandt, Halvorsen’s new VP of Operations',due:'Due Dec 5',wait:null,
+  why:'Lena became VP of Operations in September and now signs off on vendors. Her predecessor was our champion.',
+  callouts:'No one on our side has met Lena yet. She may ask to review the contract before signing.',
+  ask:['carla'],inferred:true,askNote:'Carla was copied on the Oct 28 thread. Not confirmed as the owner.',src:['s9','s10'],conf:'Medium',confNote:'owner suggested from a thread'},
+ {id:'legal',title:'Liability cap wording',due:'Due Dec 5',wait:null,locked:true,
+  why:'Halvorsen’s legal team asked to raise the liability cap. Legal and Deal Desk are working on a position.',
+  callouts:'Do not discuss the cap with Halvorsen until Legal replies.',
+  ask:['ana'],inferred:false,src:['s11'],conf:'High',confNote:'1 source'}
+];
+var NOTES0=[
+ {to:'priya',send:true,text:'Hi Priya, I’m on leave from Nov 17. Dev Raman now owns the Halvorsen renewal, including the 3-year quote due Nov 14. Please send questions to Dev. He has the full context.'},
+ {to:'ana',send:true,text:'Hi Ana, Dev Raman takes over the Halvorsen renewal while I’m on leave. He will send you the below-list pricing approval request. The liability cap wording still needs your input.'}
+];
+var DSTEPS=[
+ {t:'Searching email',q:'Halvorsen renewal pricing SSO',chips:[['RE: Renewal pricing, Oct 24','mail'],['SSO requirements, Oct 15','mail']],more:9},
+ {t:'Searching calls',q:'Halvorsen',chips:[['Halvorsen pricing call, Oct 21','call'],['Account review, Oct 28','notes']],more:3},
+ {t:'Searching tickets and cases',q:'Halvorsen open',chips:[['Case #88213, export delay','ticket'],['ENG-4412, SAML SSO','ticket']],more:2},
+ {t:'Searching CRM and docs',q:'Halvorsen Logistics renewal',chips:[['Halvorsen deal sheet','sheet'],['Security review checklist','doc']],more:6},
+ {t:'Searching chat',q:'Halvorsen',chips:[['#deal-desk-private','chat'],['#halvorsen-account','chat']],more:5},
+ {t:'Checking what Dev Raman can open',q:null,chips:[['10 of 11 sources open for Dev','ok'],['1 restricted: #deal-desk-private','lock']],more:0},
+ {t:'Finding who to ask',q:null,chips:[['Owners from tickets and threads','people'],['1 suggested from the Oct 28 thread','people']],more:0}
+];
+var ANS=[
+ 'I found 5 open loops on the Halvorsen Logistics renewal. 4 are ready for Dev to read. 1 comes from a restricted thread, so Dev will see a locked marker instead of details.',
+ 'I drafted notes for the 2 people waiting on you, Priya Nair and Ana Ruiz. Review everything in the brief on the right. Nothing is shared until you release it.'
+];
+var ANS_WORDS=ANS.join(' ').split(' ').length;
+var SUGGEST='Hand off my Halvorsen Logistics renewal to Dev Raman. I’m on leave from Nov 17 to Jan 5.';
+var SEED=[
+ {id:'r1',name:'Vendor onboarding checklist',who:'Jin Park → Lea Moreau',status:'closed',counts:'6 shared · 0 locked',last:'Oct 29, 9:05 AM',
+  log:[['Oct 28, 4:10 PM','Jin Park','Released 6 items to Lea Moreau'],['Oct 28, 4:42 PM','Lea Moreau','Opened the brief. 6 items shown, 0 locked'],['Oct 29, 9:05 AM','Lea Moreau','Accepted 6 of 6 items. Handoff closed']]},
+ {id:'r2',name:'Q4 campaign launch',who:'Tomas Silva → Ines Duarte',status:'live',counts:'3 shared · 2 locked',last:'Nov 3, 11:20 AM',
+  log:[['Nov 3, 10:02 AM','Tomas Silva','Released 3 items and 2 locked markers to Ines Duarte'],['Nov 3, 11:20 AM','Ines Duarte','Opened the brief. 3 items shown, 2 locked']]},
+ {id:'r3',name:'Support rota cover',who:'Aiko Tanaka → Marcus Bell',status:'revoked',counts:'2 shared · 0 locked',last:'Oct 20, 2:14 PM',
+  log:[['Oct 20, 1:40 PM','Aiko Tanaka','Released 2 items to Marcus Bell'],['Oct 20, 2:14 PM','Aiko Tanaka','Revoked access']]}
+];
+
+/* ---------- state ---------- */
+function initState(){
+ return {
+  persona:'maya',tour:true,paused:false,clock:0,gen:0,
+  ui:{maya:{screen:'home'},dev:{screen:'home'},priya:{screen:'home'},noor:{screen:'home'}},
+  mode:{maya:false,dev:false,priya:false,noor:false},
+  text:{maya:'',dev:'',priya:'',noor:''},
+  panel:false,showWork:true,userText:'',
+  draft:{status:'none',steps:0,words:0},
+  items:ITEMS0.map(function(i){var o={};for(var k in i)o[k]=i[k];o.decision=null;o.editing=false;o.devStatus='new';o.reply=null;o.flagText='';o.access=false;return o}),
+  notes:NOTES0.map(function(n){return {to:n.to,send:n.send,text:n.text}}),
+  released:false,status:'none',extra:[],devQA:[],priyaQA:[],priyaNote:false,savedCopy:false,accessOpen:false,
+  flags:{},log:[],modal:null,bell:false,drawer:null,filter:'all',stick:false,focus:false,lastStep:null
+ };
+}
+var S=initState();
+var timers=[];
+function later(fn,ms){var g=S.gen;var id=setTimeout(function(){if(g===S.gen)fn()},ms);timers.push(id)}
+function stamp(){S.clock+=2+(S.clock%3);var m=9*60+2+S.clock,h=Math.floor(m/60),mm=m%60,ap=h>=12?'PM':'AM';h=h%12||12;return 'Nov 10, '+h+':'+(mm<10?'0':'')+mm+' '+ap}
+function L(actor,text){S.log.push({t:stamp(),actor:actor,text:text})}
+function toast(msg){var t=$('#toast');t.textContent=msg;t.className='show';clearTimeout(toast.id);toast.id=setTimeout(function(){t.className=''},2600)}
+function P(k){return PEOPLE[k]}
+function me(){return P(S.persona)}
+
+/* ---------- small renderers ---------- */
+function person(k){var p=P(k);return '<span class="person"><span class="av" style="--c:'+p.c+'">'+p.ini+'</span>'+esc(p.name)+'</span>'}
+function srcChip(id){
+ var s=SRC[id];
+ if(s.locked)return '<span class="src locked"><span class="ico">'+ic('lock','sm')+'</span>'+esc(s.l)+' · restricted for Dev</span>';
+ return '<button class="src" data-act="src" data-arg="'+id+'"><span class="ico" data-t="'+s.t+'">'+TL[s.t]+'</span>'+esc(s.l)+'</button>';
+}
+function chipFor(c){
+ var l=c[0],t=c[1];
+ if(t==='ok')return '<span class="src good"><span class="ico" style="background:var(--ok)">'+ic('check','sm')+'</span>'+esc(l)+'</span>';
+ if(t==='lock')return '<span class="src locked"><span class="ico">'+ic('lock','sm')+'</span>'+esc(l)+'</span>';
+ if(t==='people')return '<span class="src"><span class="ico" style="background:#6b7c85">'+ic('user','sm')+'</span>'+esc(l)+'</span>';
+ return '<span class="src"><span class="ico" data-t="'+t+'">'+TL[t]+'</span>'+esc(l)+'</span>';
+}
+function stepHTML(s){
+ return '<div class="sgroup"><h5>'+esc(s.t)+'</h5>'+(s.q?'<div class="qpill">'+ic('search','sm')+esc(s.q)+'</div>':'')+
+  '<div class="row">'+s.chips.map(chipFor).join('')+(s.more?'<span class="src more">+'+s.more+' more</span>':'')+'</div></div>';
+}
+function waitTag(w){
+ if(!w)return '';
+ return '<span class="tag warn">Waiting: '+esc(w.p?P(w.p).name:w.t)+'</span>';
+}
+function bodyHTML(it,mode){
+ var ed=it.editing&&mode==='sender';
+ var why=ed?'<textarea class="ed" id="ew-'+it.id+'" rows="3">'+esc(it.why)+'</textarea>':'<p>'+esc(it.why)+'</p>';
+ var gt=ed?'<textarea class="ed" id="eg-'+it.id+'" rows="4">'+esc(it.callouts)+'</textarea>':'<p>'+esc(it.callouts)+'</p>';
+ var ask='<div class="row">'+it.ask.map(person).join('')+(it.inferred?'<span class="tag acc">Suggested'+(mode==='sender'?', please confirm':'')+'</span>':'')+'</div>'+(it.inferred&&it.askNote?'<p style="margin-top:6px;font-size:12.5px;color:var(--ink-2)">'+esc(it.askNote)+'</p>':'');
+ var srcs='<div class="row">'+it.src.map(function(id){
+   if(mode==='dev'&&SRC[id].locked)return '';
+   return srcChip(id)}).join('')+'</div><div class="confline">Confidence: <b>'+it.conf+'</b> · '+esc(it.confNote)+'</div>';
+ return '<div class="sec"><div class="k">Why it exists</div>'+why+'</div><div class="sec"><div class="k">Call-outs</div>'+gt+'</div><div class="sec"><div class="k">Who to ask</div>'+ask+'</div><div class="sec"><div class="k">Sources</div>'+srcs+'</div>';
+}
+
+/* ---------- stage bar ---------- */
+function renderStage(){
+ var h='<div><div class="t">Handoff prototype</div><div class="sub">Simulated AI. All names and data are invented.</div></div>';
+ h+='<div class="seg" role="group" aria-label="View as">';
+ ['maya','dev','priya'].forEach(function(k){
+  var p=P(k);
+  h+='<button data-act="persona" data-arg="'+k+'" data-persona="'+k+'" class="'+(S.persona===k?'on':'')+'" aria-pressed="'+(S.persona===k)+'"><span class="av" style="--c:'+p.c+'">'+p.ini+'</span><span><b>'+p.first+'</b><small>'+ROLE_LABEL[k]+'</small></span></button>';
+ });
+ h+='</div><div class="grow"></div>';
+ h+='<button class="sbtn '+(S.tour?'on':'')+'" data-act="tour">Guided tour: '+(S.tour?'On':'Off')+'</button><button class="sbtn" data-act="reset">Reset</button>';
+ $('#stage').innerHTML=h;
+}
+
+/* ---------- rail ---------- */
+function openQs(){return S.items.filter(function(i){return i.devStatus==='sentback'||i.devStatus==='flagged'})}
+function railHTML(){
+ var p=S.persona,scr=S.ui[p].screen,u=me();
+ function nav(icon,label,act,arg,on,coach,extra){return '<button class="nav'+(on?' on':'')+'" data-act="'+act+'"'+(arg?' data-arg="'+arg+'"':'')+(coach?' data-coach="'+coach+'"':'')+'>'+ic(icon)+'<span class="tx">'+label+'</span>'+(extra||'')+'</button>'}
+ var badge='';
+ if(p==='dev'&&S.released&&!S.flags.devOpened)badge='<span class="badge">1</span>';
+ if(p==='maya'&&openQs().length)badge='<span class="badge">'+openQs().length+'</span>';
+ var recents=[];
+ if(p==='maya'){
+  if(S.draft.status!=='none')recents.push('<button class="nav sub'+(scr==='chat'?' on':'')+'" data-act="open-chat">'+ic('chatplus')+'<span class="tx">Handoff: Halvorsen renewal</span></button>');
+  ['Halvorsen pricing call notes','Pipeline review prep','Renewal playbook edits'].forEach(function(t){recents.push('<button class="nav sub" data-act="na">'+ic('chatplus')+'<span class="tx">'+t+'</span></button>')});
+ }else if(p==='dev'){
+  if(S.released)recents.push('<button class="nav sub'+(scr==='brief'?' on':'')+'" data-act="open-brief" data-coach="recent-handoff">'+ic('handoff')+'<span class="tx">Handoff from Maya Okafor</span>'+(!S.flags.devOpened?'<span class="dotnew"></span>':'')+'</button>');
+  ['Territory plan 2027','Q4 forecast sync','Win and loss notes'].forEach(function(t){recents.push('<button class="nav sub" data-act="na">'+ic('chatplus')+'<span class="tx">'+t+'</span></button>')});
+ }else if(p==='priya'){
+  ['Quote template review','Pricing exceptions log','Q4 revenue close checklist'].forEach(function(t){recents.push('<button class="nav sub" data-act="na">'+ic('chatplus')+'<span class="tx">'+t+'</span></button>')});
+ }else{
+  ['Connector health review','SSO rollout plan','Retention policy edits'].forEach(function(t){recents.push('<button class="nav sub" data-act="na">'+ic('chatplus')+'<span class="tx">'+t+'</span></button>')});
+ }
+ return '<nav class="rail" aria-label="Main"><div class="top"><div class="logo"><i></i><span>Beacon</span></div><div class="tools"><button class="tbtn" data-act="nav" data-arg="home" aria-label="New chat">'+ic('edit')+'</button><button class="tbtn" data-act="na" aria-label="Collapse">'+ic('panel')+'</button></div></div>'+
+  nav('home','Home','nav','home',scr==='home'||scr==='chat'||scr==='brief','rail-home')+
+  nav('search','Search','na')+nav('agents','Agents','na')+nav('people','People','na')+nav('content','Content','na')+
+  nav('handoff','Handoff','nav','hub',scr==='hub'||scr==='detail','rail-handoff',badge)+
+  '<div class="lbl">Recent</div>'+recents.join('')+'<button class="nav sub" data-act="na" style="color:var(--ink-3)"><span class="tx">See all</span></button>'+
+  '<div class="spacer"></div>'+
+  ''+
+  '<div class="me"><span class="av" style="--c:'+u.c+'">'+u.ini+'</span><span class="tx">'+esc(u.name)+'</span></div></nav>';
+}
+
+/* ---------- header with bell ---------- */
+function notifs(){
+ var p=S.persona,n=[];
+ if(p==='dev'&&S.released&&S.status!=='revoked')n.push({id:'dev',t:'Maya Okafor handed off the Halvorsen renewal to you',s:'4 items and 1 locked marker',unread:!S.flags.devOpened});
+ if(p==='priya'&&S.released&&S.notes[0].send)n.push({id:'priya',t:'Update from Maya Okafor about the Halvorsen renewal',s:'Note approved by Maya',unread:!S.priyaNote});
+ if(p==='maya'&&openQs().length)n.push({id:'maya',t:'Dev Raman sent back '+openQs().length+(openQs().length>1?' items':' item'),s:'Open the handoff to reply',unread:true});
+ return n;
+}
+function hdr(left,right){
+ var n=notifs(),unread=n.some(function(x){return x.unread});
+ var pop='';
+ if(S.bell){pop='<div class="pop">'+(n.length?n.map(function(x){return '<button class="it" data-act="notif" data-arg="'+x.id+'"><b style="font-weight:600">'+esc(x.t)+'</b><small>'+esc(x.s)+'</small></button>'}).join(''):'<div class="empty">No new notifications.</div>')+'</div>'}
+ return '<div class="mhead"><div class="crumb">'+left+'</div><div class="hr">'+(right||'')+'<div class="bellwrap"><button class="tbtn" data-act="bell" data-coach="bell" aria-label="Notifications">'+ic('bell')+(unread?'<span class="bdot"></span>':'')+'</button>'+pop+'</div></div></div>';
+}
+
+/* ---------- composer ---------- */
+function composerHTML(o){
+ o=o||{};
+ var p=S.persona,m=S.mode[p]&&!o.scoped;
+ var ph=o.scoped?'Ask about this handoff…':(m?'Who is taking over, and what are they taking over?':'Ask anything…');
+ var tools;
+ if(o.scoped){tools='<span class="scopednote">'+ic('shield','sm')+'Answers use only sources you can open</span>'}
+ else{
+  tools='<button class="tbtn" data-act="na" aria-label="Add">'+ic('plus')+'</button><button class="tbtn" data-act="na" aria-label="Web">'+ic('globe')+'</button><button class="tbtn" data-act="na" aria-label="Apps">'+ic('apps')+'</button>'+
+   (m?'<span class="mode handoff">'+ic('handoff','sm')+'Handoff <button data-act="mode-off" aria-label="Exit Handoff mode">'+ic('x','sm')+'</button></span>':'<button class="mode" data-act="na">'+ic('bolt')+'Fast</button>');
+ }
+ return '<div class="comp" id="comp"><textarea id="ct" rows="1" placeholder="'+ph+'" aria-label="Message"></textarea><div class="tl">'+tools+'<button class="sendb" data-act="send" data-coach="send" aria-label="Send">'+ic('send')+'</button></div>'+
+  '<div class="slash'+(o.up?' up':'')+'" id="slash" hidden>'+
+  '<button class="sitem" data-cmd="/handoff" data-act="slash-handoff">'+ic('handoff')+'<span><b>/handoff</b><small>Hand off open work to a teammate</small></span></button>'+
+  '<button class="sitem dis" data-cmd="/summarize" data-act="na">'+ic('doc')+'<span><b>/summarize</b><small>Summarize a thread or doc</small></span></button>'+
+  '<button class="sitem dis" data-cmd="/draft" data-act="na">'+ic('edit')+'<span><b>/draft</b><small>Draft a reply</small></span></button></div></div>';
+}
+
+/* ---------- screens ---------- */
+function homeHTML(){
+ var p=S.persona,m=S.mode[p],paused=S.paused;
+ var below;
+ if(m){
+  below='<div class="modenote"><div class="info">'+ic('shield','sm')+'Handoff shares only what the receiver can already open.</div>'+
+   '<button class="suggest" data-act="suggest" data-coach="suggest">'+esc(SUGGEST)+'</button></div>';
+ }else{
+  below='<div class="chips"><button class="chipb hand" data-act="chip-handoff" data-coach="chip-handoff">'+ic('handoff')+'Handoff'+'<span class="newtag">New</span></button>'+
+   ['Featured','Recommended agents','Favorite agents','Your agents'].map(function(t){return '<button class="chipb" data-act="na">'+t+'</button>'}).join('')+'</div>';
+  if(p==='priya')below+='<div class="try">Try: <button class="sug" data-act="priya-q" data-arg="owner" data-coach="priya-ask">Who owns the Halvorsen renewal quote now?</button></div>';
+ }
+ return hdr('','')+'<div class="scroll" data-key="home"><div class="homewrap"><h1>Ask Beacon about your work</h1>'+composerHTML()+below+'</div></div>';
+}
+function chatHTML(){
+ var d=S.draft,h='';
+ h+=hdr(ic('chatplus')+'Assistant','<button class="btn sm" data-act="na">'+ic('lock','sm')+'Share</button>');
+ h+='<div class="scroll" data-key="chat" data-bottom="1"><div class="col"><div class="msgs">';
+ h+='<div class="ubub">'+esc(S.userText)+'</div>';
+ h+='<div><button class="swork" data-act="toggle-sw" data-coach="showwork">Show work '+ic(S.showWork?'chevd':'chevr','sm')+'</button>';
+ if(S.showWork){
+  h+=DSTEPS.slice(0,d.steps).map(stepHTML).join('');
+  if(d.status==='working'&&d.steps<DSTEPS.length)h+='<div class="working"><span class="dots"></span>Working…</div>';
+ }
+ h+='</div>';
+ if(d.words>0){
+  var left=d.words,out='';
+  ANS.forEach(function(par){var w=par.split(' ');if(left<=0)return;var n=Math.min(left,w.length);out+='<p>'+esc(w.slice(0,n).join(' '))+'</p>';left-=n});
+  h+='<div><div class="prose">'+out+'</div>';
+  if(d.status==='ready'){
+   h+='<div class="acts"><button class="ibtn" data-act="na" aria-label="Copy">'+ic('copy')+'</button><button class="ibtn" data-act="na" aria-label="Good answer">'+ic('up')+'</button><button class="ibtn" data-act="na" aria-label="Bad answer">'+ic('up','flip')+'</button>'+
+    '<button class="ibtn hl" data-act="toggle-panel" data-coach="open-brief">'+ic('canvas')+(S.panel?'Hide brief':'Open brief')+'</button><button class="ibtn" data-act="na" aria-label="Share">'+ic('share')+'</button></div>';
+  }
+  h+='</div>';
+ }
+ S.extra.forEach(function(m){
+  if(m.role==='user')h+='<div class="ubub">'+esc(m.text)+'</div>';
+  else h+='<div><div class="prose"><p>'+esc(m.text)+'</p></div>'+(m.btn?'<div class="acts"><button class="btn sm" data-act="open-detail">'+esc(m.btn)+'</button></div>':'')+'</div>';
+ });
+ h+='</div></div></div><div class="dock">'+composerHTML({up:true})+'</div>';
+ return h;
+}
+function hubRows(){
+ var p=S.persona,rows='';
+ if(p==='maya'||p==='noor'){
+  if(p==='maya'&&S.draft.status!=='none'){
+   if(!S.released)rows='<tr class="rw" data-act="open-chat"><td><b>Halvorsen renewal</b></td><td>Dev Raman</td><td><span class="tag warn">Draft</span></td><td>Not shared yet</td></tr>';
+   else rows='<tr class="rw" data-act="open-detail"><td><b>Halvorsen renewal</b></td><td>Dev Raman</td><td>'+statusTag()+'</td><td>'+handoffSummary()+(openQs().length?' <span class="tag warn">'+openQs().length+' to reply</span>':'')+'</td></tr>';
+  }
+  if(!rows)return '<p class="lead" style="margin-top:8px">You have not started a handoff yet.</p>';
+  return '<div class="tblwrap"><table class="tbl"><thead><tr><th>Handoff</th><th>To</th><th>Status</th><th>Details</th></tr></thead><tbody>'+rows+'</tbody></table></div>';
+ }
+ if(p==='dev'){
+  if(!S.released)return '<p class="lead" style="margin-top:8px">Nothing has been handed to you.</p>';
+  return '<div class="tblwrap"><table class="tbl"><thead><tr><th>Handoff</th><th>From</th><th>Status</th><th>Details</th></tr></thead><tbody><tr class="rw" data-act="open-brief"><td><b>Halvorsen renewal</b></td><td>Maya Okafor</td><td>'+statusTag()+'</td><td>'+(S.status==='revoked'?'Access removed':acceptedCount()+' of '+shareCount()+' accepted')+'</td></tr></tbody></table></div>';
+ }
+ if(!(S.released&&S.notes[0].send))return '<p class="lead" style="margin-top:8px">No updates about handoffs yet.</p>';
+ return '<div class="tblwrap"><table class="tbl"><thead><tr><th>Update</th><th>From</th><th>Status</th></tr></thead><tbody><tr class="rw" data-act="notif" data-arg="priya"><td><b>Halvorsen renewal owner changed</b></td><td>Maya Okafor</td><td><span class="tag ok">New</span></td></tr></tbody></table></div>';
+}
+function hubHTML(){
+ var p=S.persona,incoming=(p==='dev'||p==='priya');
+ var h=hdr(ic('handoff')+'Handoff','');
+ h+='<div class="scroll" data-key="hub"><div class="col"><h2>Handoff</h2><p class="lead">Pass open work to a teammate with the reasons, call-outs and context they need.</p>';
+ if(!incoming||p==='dev'){
+  h+='<div class="card" style="display:flex;align-items:center;justify-content:space-between;gap:16px"><div><b style="font-weight:600">Start a handoff</b><div style="color:var(--ink-2);font-size:13.5px;margin-top:2px">Beacon drafts a brief from your work. You review it before anything is shared.</div></div><button class="btn pri" data-act="start-handoff" data-coach="hub-start">'+ic('handoff','sm')+'Start a handoff</button></div>';
+ }
+ h+='<h2 style="font-size:17px;margin-top:20px">'+(incoming?(p==='dev'?'Incoming':'Updates'):'Your handoffs')+'</h2>'+hubRows()+'</div></div>';
+ return h;
+}
+function statusTag(){
+ var m={live:'<span class="tag ok">Live</span>',closed:'<span class="tag">Closed</span>',revoked:'<span class="tag crit">Revoked</span>',draft:'<span class="tag warn">Draft</span>'};
+ return m[S.status]||'';
+}
+function shareCount(){return S.items.filter(function(i){return i.decision==='keep'&&!i.locked}).length}
+function acceptedCount(){return S.items.filter(function(i){return i.decision==='keep'&&!i.locked&&i.devStatus==='accepted'}).length}
+function markerCount(){return S.items.filter(function(i){return i.decision==='keep'&&i.locked}).length}
+function handoffSummary(){return shareCount()+' shared · '+markerCount()+' locked'}
+
+function detailHTML(){
+ var qs=openQs();
+ var h=hdr(ic('handoff')+'Handoff','');
+ h+='<div class="scroll" data-key="detail"><div class="col"><h2>Halvorsen renewal</h2><div class="row" style="margin-bottom:8px">'+statusTag()+person('dev')+'<span style="color:var(--ink-2);font-size:13px">Takes over Nov 17 to Jan 5</span></div>';
+ h+='<div class="stat"><div><b>'+(S.flags.devOpened?'Yes':'Not yet')+'</b><span>Dev opened it</span></div><div><b>'+acceptedCount()+' of '+shareCount()+'</b><span>Items accepted</span></div><div><b>'+qs.length+'</b><span>Sent back</span></div></div>';
+ if(S.status==='revoked')h+='<div class="banner crit">'+ic('lock')+'<div><b>Access revoked.</b> Dev can no longer open this brief.</div></div>';
+ else if(S.status==='closed')h+='<div class="banner">'+ic('check')+'<div><b>Closed.</b> Dev accepted every item.</div></div>';
+ if(qs.length){
+  h+='<div class="psec">Sent back by Dev</div>'+qs.map(function(i){return '<div class="card pending"><div class="chead"><h4>'+esc(i.title)+'</h4><span class="tag warn">'+(i.devStatus==='flagged'?'Flagged':'Sent back')+'</span></div><div class="callout">'+esc(P('dev').first+': '+i.flagText)+'</div><textarea class="ed" id="rp-'+i.id+'" rows="2" placeholder="Reply to Dev" style="margin-top:10px"></textarea><div class="cbtns"><button class="btn pri sm" data-act="reply-send" data-arg="'+i.id+'">Send reply</button></div></div>'}).join('');
+ }
+ h+='<div class="psec">Items</div><div class="tblwrap"><table class="tbl"><thead><tr><th>Item</th><th>Dev’s status</th></tr></thead><tbody>';
+ S.items.filter(function(i){return i.decision==='keep'}).forEach(function(i){
+  var st=i.locked?'<span class="tag lock">'+ic('lock','sm')+'Locked marker</span>':({accepted:'<span class="tag ok">Accepted</span>',sentback:'<span class="tag warn">Sent back</span>',flagged:'<span class="tag warn">Flagged</span>',new:'<span class="tag">Not yet</span>'})[i.devStatus];
+  h+='<tr><td>'+(i.locked?'Restricted item':esc(i.title))+'</td><td>'+st+'</td></tr>';
+ });
+ h+='</tbody></table></div>';
+ if(S.status==='live')h+='<div class="cbtns" style="margin-top:18px"><button class="btn dng" data-act="revoke-open" data-arg="detail">Revoke access</button></div>';
+ h+='</div></div>';
+ return h;
+}
+
+/* sender panel */
+function senderCard(it){
+ if(it.decision==='removed'){
+  return '<div class="card removed" id="card-'+it.id+'"><span>'+(it.locked?'Locked marker removed':'Removed: '+esc(it.title))+'</span>'+(S.released?'':'<button class="btn sm" data-act="undo" data-arg="'+it.id+'">Undo</button>')+'</div>';
+ }
+ var firstUn=S.items.filter(function(x){return x.decision===null})[0];
+ var isFirst=firstUn&&firstUn.id===it.id;
+ var tag=it.decision==='keep'?'<span class="tag ok">'+(it.locked?'Marker kept':(it.edited?'Kept, edited':'Kept'))+'</span>':'<span class="tag warn">Needs review</span>';
+ var h='<div class="card'+(it.locked?' locked':'')+(it.decision==='keep'?' kept':'')+'" id="card-'+it.id+'"><div class="chead"><h4>'+(it.locked?ic('lock','sm')+' ':'')+esc(it.title)+'</h4>'+tag+'</div>';
+ h+='<div class="meta"><span class="tag">'+esc(it.due)+'</span>'+waitTag(it.wait)+'</div>';
+ if(it.locked){
+  h+='<div class="callout acc"><b style="font-weight:600">What Dev will see:</b> a locked marker. No title, no details, only who to ask. His access to the source is not widened.</div>';
+  h+='<div class="sec"><div class="k">What you can see (Dev can’t)</div><p>'+esc(it.why)+' '+esc(it.callouts)+'</p></div><div class="sec"><div class="k">Source</div><div class="row">'+it.src.map(srcChip).join('')+'</div></div>';
+  if(!S.released){
+   h+='<div class="cbtns"><button class="btn'+(it.decision==='keep'?' on':'')+'" data-act="keep" data-arg="'+it.id+'"'+(isFirst?' data-coach="keep-first"':'')+'>'+ic('check','sm')+'Keep marker</button><button class="btn" data-act="remove" data-arg="'+it.id+'">Remove marker</button><button class="btn'+(it.access?' on':'')+'" data-act="req-access-sender" data-arg="'+it.id+'">'+(it.access?'Access requested from Legal':'Request access for Dev')+'</button></div>';
+  }
+ }else{
+  h+=bodyHTML(it,'sender');
+  if(!S.released){
+   if(it.editing)h+='<div class="cbtns"><button class="btn pri sm" data-act="save-edit" data-arg="'+it.id+'">Save changes</button><button class="btn sm" data-act="cancel-edit" data-arg="'+it.id+'">Cancel</button></div>';
+   else h+='<div class="cbtns"><button class="btn'+(it.decision==='keep'?' on':'')+'" data-act="keep" data-arg="'+it.id+'"'+(isFirst?' data-coach="keep-first"':'')+'>'+ic('check','sm')+'Keep</button><button class="btn" data-act="edit" data-arg="'+it.id+'">'+ic('edit','sm')+'Edit</button><button class="btn dng" data-act="remove" data-arg="'+it.id+'">Remove</button></div>';
+  }
+ }
+ return h+'</div>';
+}
+function reviewedCount(){return S.items.filter(function(i){return i.decision!==null}).length}
+function panelHTML(){
+ var vis=S.persona==='maya'&&S.ui.maya.screen==='chat'&&S.panel;
+ if(!vis)return '<aside class="panel"></aside>';
+ var rel=S.released,n=S.items.length,rv=reviewedCount();
+ var canRel=rv===n&&shareCount()>=1;
+ var h='<aside class="panel" aria-label="Handoff brief"><div class="phead"><div class="ttl">'+ic('canvas')+'Handoff brief'+(rel?'<span class="tag ok">Released</span>':'<span class="tag warn">Draft, not shared</span>')+'</div><button class="ibtn" data-act="close-panel" aria-label="Close brief">'+ic('x')+'</button></div><div class="pbody" id="pbody">';
+ h+='<div class="recip"><span class="av lg" style="--c:'+P('dev').c+'">DR</span><div><b style="font-weight:600">Dev Raman</b> takes over Halvorsen Logistics renewal<small>Maya on leave Nov 17 to Jan 5</small></div></div>';
+ h+='<div class="psum">5 open loops · 2 people waiting · 1 locked for Dev. Dev sees only what he can already open.</div>';
+ h+=S.items.map(senderCard).join('');
+ h+='<div class="psec">Notes to people waiting</div>';
+ h+=S.notes.map(function(nt,i){var p=P(nt.to);return '<div class="note"><div class="nh"><span class="person"><span class="av" style="--c:'+p.c+'">'+p.ini+'</span>'+esc(p.name)+', '+esc(p.role)+'</span>'+(rel?'<span class="tag ok">'+(nt.send?'Sent':'Not sent')+'</span>':'<label><input type="checkbox" data-note-send="'+i+'"'+(nt.send?' checked':'')+'> Send when I release</label>')+'</div>'+(rel?'<p style="margin:0;font-size:13.5px">'+esc(nt.text)+'</p>':'<textarea class="ed" rows="3" data-note-text="'+i+'">'+esc(nt.text)+'</textarea>')+'</div>'}).join('');
+ h+='</div><div class="pfoot">';
+ if(rel)h+='<span class="hint">Released. Dev’s access is checked each time he opens it.</span><button class="btn" data-act="open-detail">View status</button>';
+ else h+='<span class="hint">'+rv+' of '+n+' reviewed. Nothing is shared until you release.</span><button class="btn pri" data-act="release-open" data-coach="release"'+(canRel?'':' disabled')+'>Release to Dev</button>';
+ return h+'</div></aside>';
+}
+
+/* receiver brief */
+var QS={
+ cap:{q:'Did Maya promise the 5% cap in writing?',a:['No. On the Oct 21 call Maya said the cap would likely hold under 5%, but the only written offer is 8% in the Oct 24 email.','Quoting below list needs deal desk approval before Priya can issue the quote.'],src:['s1','s2'],note:'Used 2 sources you can open. No restricted sources used.'},
+ locked:{q:'What is the restricted item about?',a:['I can’t summarize it. It is based on a source you don’t have access to, and your access is not widened by this handoff.','Maya Okafor or Ana Ruiz can tell you more, or you can request access from the card above.'],src:[],note:'Answer withheld. 0 sources used.'},
+ wait:{q:'Who is waiting on me?',a:['Priya Nair in Finance is waiting on the 3-year quote, due Nov 14. Halvorsen’s IT team is waiting on an SSO timeline, and their ops team on news about the export fix.'],src:['s1','s6','s4'],note:'Used 3 sources you can open. No restricted sources used.'}
+};
+function devAnswerKey(q){
+ var s=q.toLowerCase();
+ if(/restrict|liabil|locked/.test(s))return 'locked';
+ if(/writing|5%|promise|cap/.test(s))return 'cap';
+ if(/wait|who/.test(s))return 'wait';
+ return null;
+}
+function devCard(it){
+ var st=it.devStatus,cls='card';
+ if(it.locked){
+  var req=it.access;
+  return '<div class="card locked" data-coach="locked-card"><div class="chead"><h4>'+ic('lock','sm')+' Restricted item</h4><span class="tag lock">Locked</span></div><p style="margin:8px 0 0;font-size:14px">This item is based on a source you can’t open. Maya Okafor or Ana Ruiz can tell you more.</p><div class="meta">'+person('maya')+person('ana')+'</div><div class="cbtns"><button class="btn'+(req?' on':'')+'" data-act="req-access-dev" data-arg="'+it.id+'">'+(req?'Request sent to Legal and Deal Desk':'Request access')+'</button></div></div>';
+ }
+ if(st==='accepted')cls+=' done';
+ if(st==='sentback'||st==='flagged')cls+=' pending';
+ var firstOpen=S.items.filter(function(x){return x.decision==='keep'&&!x.locked&&x.devStatus==='new'})[0];
+ var h='<div class="'+cls+'"><div class="chead"><h4>'+esc(it.title)+'</h4>'+(st==='accepted'?'<span class="tag ok">You own this</span>':'')+'</div><div class="meta"><span class="tag">'+esc(it.due)+'</span>'+waitTag(it.wait)+'</div>';
+ h+=bodyHTML(it,'dev');
+ if(it.reply)h+='<div class="callout acc"><b style="font-weight:600">Maya replied:</b> '+esc(it.reply)+'</div>';
+ if(st==='sentback'||st==='flagged')h+='<div class="callout warn">'+(st==='flagged'?'Flagged':'Sent back')+' to Maya. Waiting for her reply.</div>';
+ if(st!=='accepted'&&S.status==='live'){
+  h+='<div class="cbtns"><button class="btn pri" data-act="dev-accept" data-arg="'+it.id+'"'+(firstOpen&&firstOpen.id===it.id?' data-coach="accept-first"':'')+'>'+ic('check','sm')+'Accept</button><button class="btn" data-act="dev-flag" data-arg="sentback:'+it.id+'">Send back</button><button class="btn" data-act="dev-flag" data-arg="flagged:'+it.id+'">Flag as wrong or stale</button></div>';
+ }
+ return h+'</div>';
+}
+function qaHTML(list,withNote){
+ return list.map(function(m){
+  var h='<div class="ubub">'+esc(m.q)+'</div>';
+  if(m.pending)return h+'<div class="working"><span class="dots"></span>Checking what you can open…</div>';
+  h+='<div class="ans">'+m.a.map(function(t){return '<p>'+esc(t)+'</p>'}).join('')+(m.src.length?'<div class="row" style="margin-top:6px">'+m.src.map(srcChip).join('')+'</div>':'')+(m.note?'<div class="confline">'+esc(m.note)+'</div>':'')+'</div>';
+  return h;
+ }).join('');
+}
+function briefHTML(){
+ var h=hdr(ic('handoff')+'Handoff from Maya Okafor','<button class="btn sm" data-act="save-copy">'+ic('doc','sm')+(S.savedCopy?'Copy saved':'Save a dated copy')+'</button>');
+ h+='<div class="scroll" data-key="brief"><div class="col"><h2>Halvorsen Logistics renewal</h2><p class="lead" style="margin-bottom:0">Released by Maya Okafor on Nov 10. She is on leave Nov 17 to Jan 5.</p>';
+ if(S.paused){
+  h+='<div class="banner warn">'+ic('lock')+'<div><b>Handoff is paused by your admin.</b> The brief is hidden until it is turned back on. Saved copies are not affected.</div></div>';
+ }else if(S.status==='revoked'){
+  h+='<div class="banner crit">'+ic('lock')+'<div><b>This handoff was revoked.</b> The items are no longer available.'+(S.savedCopy?' Your saved copy from Nov 10 stays in Content.':'')+'</div></div>';
+ }else{
+  var shown=S.items.filter(function(i){return i.decision==='keep'}),real=shown.filter(function(i){return !i.locked}),mk=shown.filter(function(i){return i.locked}).length;
+  h+='<div class="banner">'+ic('shield')+'<div><b>You see what you can already open.</b> Your access is checked every time you open this brief. '+real.length+' items shown, '+mk+' locked. <button class="lnk" data-act="toggle-access">'+(S.accessOpen?'Hide access check':'Show access check')+'</button>'+(S.accessOpen?'<div style="margin-top:6px">Checked just now for Dev Raman: 10 of 11 sources open, 1 restricted (Legal and Deal Desk).</div>':'')+'</div></div>';
+  if(S.status==='closed')h+='<div class="banner"><div><b>Closed.</b> You accepted every item. Maya has been told.</div></div>';
+  h+='<div class="prog"><span>'+acceptedCount()+' of '+real.length+' accepted</span><div class="bar"><i style="width:'+(real.length?Math.round(100*acceptedCount()/real.length):0)+'%"></i></div></div>';
+  h+=shown.map(devCard).join('');
+  h+='<div class="psec">Ask about this handoff</div><div class="qa">'+qaHTML(S.devQA)+'</div>';
+ }
+ h+='</div></div>';
+ if(!S.paused&&S.status!=='revoked'){
+  h+='<div class="dock"><div class="sugs">'+['cap','locked','wait'].map(function(k,i){return '<button class="sug" data-act="ask-chip" data-arg="'+k+'"'+(i===0?' data-coach="ask-1"':'')+'>'+esc(QS[k].q)+'</button>'}).join('')+'</div>'+composerHTML({scoped:true,up:true})+'</div>';
+ }
+ return h;
+}
+
+/* waiting person chat */
+var PQ={
+ owner:'Who owns the Halvorsen renewal quote now?'
+};
+function priyaAnswer(){
+ if(S.status==='revoked'&&S.released)return {a:['The note about this handoff was withdrawn. Ask Maya Okafor who owns the quote.'],src:[],note:'No handoff content used.'};
+ if(S.released&&S.notes[0].send)return {a:['Dev Raman owns the Halvorsen renewal quote now. Maya Okafor is on leave from Nov 17 and approved this update. The quote is still due Nov 14, so send questions to Dev.','I can’t share more detail. The full brief is not shared with you.'],src:['note'],note:'Used only the note Maya approved. No brief content used.'};
+ return {a:['I can’t find a change of owner for the Halvorsen renewal quote. Maya Okafor is still listed as the owner.'],src:['s3'],note:'Used 1 source you can open.'};
+}
+function priyaHTML(){
+ var h=hdr(ic('chatplus')+'Assistant','');
+ h+='<div class="scroll" data-key="priya" data-bottom="1"><div class="col"><div class="msgs">';
+ if(S.priyaNote&&S.released&&S.notes[0].send){
+  h+='<div class="card"><div class="chead"><h4>Update about the Halvorsen renewal</h4><span class="tag acc">Approved by Maya before sending</span></div><div class="row" style="margin:8px 0">'+person('maya')+'</div><p style="margin:0;font-size:14.5px;line-height:1.55">'+esc(S.notes[0].text)+'</p></div>';
+ }
+ h+=qaHTML(S.priyaQA);
+ h+='</div></div></div><div class="dock"><div class="sugs"><button class="sug" data-act="priya-q" data-arg="owner" data-coach="priya-ask">'+esc(PQ.owner)+'</button></div>'+composerHTML({up:true})+'</div>';
+ return h;
+}
+
+/* admin */
+function rowsAdmin(){
+ var rows=[];
+ if(S.released)rows.push({id:'main',name:'Halvorsen renewal',who:'Maya Okafor → Dev Raman',status:S.status,counts:handoffSummary(),last:S.log.length?S.log[S.log.length-1].t:''});
+ SEED.forEach(function(r){rows.push(r)});
+ return rows.filter(function(r){return S.filter==='all'||r.status===S.filter});
+}
+function pill(st){return ({live:'<span class="tag ok">Live</span>',closed:'<span class="tag">Closed</span>',revoked:'<span class="tag crit">Revoked</span>'})[st]||''}
+function adminHTML(){
+ var h=hdr(ic('admin')+'Admin console','');
+ h+='<div class="scroll" data-key="admin"><div class="col wide"><h2>Handoff</h2><p class="lead">Audit every handoff. Access is checked each time a brief is opened, and every step is logged.</p>';
+ h+='<div class="kill"><div><b style="font-weight:600">Handoff for everyone</b><p>Pause to stop new handoffs and hide briefs from receivers. Saved copies are not affected.</p></div><button class="sw'+(S.paused?'':' on')+'" data-act="pause" role="switch" aria-checked="'+(!S.paused)+'" aria-label="Handoff enabled"></button></div>';
+ h+='<div class="frow"><label for="flt">Status</label><select id="flt" data-filter="1">'+['all','live','closed','revoked'].map(function(v){return '<option value="'+v+'"'+(S.filter===v?' selected':'')+'>'+v.charAt(0).toUpperCase()+v.slice(1)+'</option>'}).join('')+'</select></div>';
+ h+='<div class="tblwrap"><table class="tbl"><thead><tr><th>Handoff</th><th>From and to</th><th>Status</th><th>Items</th><th>Last activity</th></tr></thead><tbody>';
+ var rows=rowsAdmin();
+ if(!rows.length)h+='<tr><td colspan="5" style="color:var(--ink-3)">No handoffs match this filter.</td></tr>';
+ rows.forEach(function(r){h+='<tr class="rw" data-act="admin-row" data-arg="'+r.id+'"'+(r.id==='main'?' data-coach="row-main"':'')+'><td><b>'+esc(r.name)+'</b></td><td>'+esc(r.who)+'</td><td>'+pill(r.status)+'</td><td>'+esc(r.counts)+'</td><td>'+esc(r.last)+'</td></tr>'});
+ h+='</tbody></table></div></div></div>';
+ if(S.drawer){
+  var r=S.drawer==='main'?{id:'main',name:'Halvorsen renewal',who:'Maya Okafor → Dev Raman',status:S.status,counts:handoffSummary()}:SEED.filter(function(x){return x.id===S.drawer})[0];
+  var log=S.drawer==='main'?S.log.map(function(e){return [e.t,e.actor,e.text]}):r.log;
+  h+='<aside class="drawer" aria-label="Audit log"><div class="phead"><div class="ttl">'+esc(r.name)+pill(r.status)+'</div><button class="ibtn" data-act="drawer-close" aria-label="Close">'+ic('x')+'</button></div><div class="db"><div style="color:var(--ink-2);font-size:13.5px">'+esc(r.who)+' · '+esc(r.counts)+'</div><div class="banner" style="margin:12px 0 4px">'+ic('shield')+'<div>The receiver’s access is re-checked on every open. Restricted sources are never widened.</div></div>';
+  if(r.status==='live'&&S.drawer==='main')h+='<div class="cbtns" style="margin:12px 0 4px"><button class="btn dng" data-act="revoke-open" data-arg="admin" data-coach="revoke">Revoke access</button></div>';
+  h+='<ul class="tl2">'+log.map(function(e){return '<li><time>'+esc(e[0])+'</time><div><b>'+esc(e[1])+'</b><br>'+esc(e[2])+'</div></li>'}).join('')+'</ul></div></aside>';
+ }
+ return h;
+}
+
+/* modal */
+function modalHTML(){
+ var m=S.modal;if(!m)return '';
+ if(m.type==='release'){
+  var real=shareCount(),mk=markerCount(),nn=S.notes.filter(function(n){return n.send}).length;
+  return '<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="Release handoff"><h3>Release to Dev Raman?</h3><div style="color:var(--ink-2);font-size:14px">This is what Dev can open.</div><ul><li>'+real+' items with reasons, call-outs and sources</li>'+(mk?'<li>'+mk+' locked marker, no details</li>':'')+'<li>'+nn+' note'+(nn===1?'':'s')+' to people waiting</li><li>Dev’s access is checked each time he opens it</li><li>You can revoke at any time from Handoff</li></ul><div class="mbtn"><button class="btn" data-act="modal-close">Cancel</button><button class="btn pri" data-act="release-confirm">Release</button></div></div></div>';
+ }
+ if(m.type==='flag'){
+  var it=S.items.filter(function(i){return i.id===m.id})[0];
+  return '<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="Message to Maya"><h3>'+(m.kind==='flagged'?'Flag this item':'Send this item back')+'</h3><div style="color:var(--ink-2);font-size:14px;margin-bottom:10px">'+esc(it.title)+'</div><textarea class="ed" id="flagtext" rows="3" placeholder="What should Maya know?">'+esc(m.kind==='flagged'?'This looks out of date. The SSO ticket may have moved.':'Can you confirm whether the 5% cap was ever sent in writing?')+'</textarea><div class="mbtn"><button class="btn" data-act="modal-close">Cancel</button><button class="btn pri" data-act="flag-confirm">Send to Maya</button></div></div></div>';
+ }
+ if(m.type==='revoke'){
+  return '<div class="scrim"><div class="modal" role="dialog" aria-modal="true" aria-label="Revoke handoff"><h3>Revoke this handoff?</h3><ul><li>Dev loses access right away</li><li>The note to Priya is withdrawn</li><li>A copy Dev already saved stays in his Content</li></ul><div class="mbtn"><button class="btn" data-act="modal-close">Cancel</button><button class="btn dng" data-act="revoke-confirm">Revoke access</button></div></div></div>';
+ }
+ return '';
+}
+
+/* ---------- main render ---------- */
+function mainHTML(){
+ var p=S.persona,scr=S.ui[p].screen;
+ if(scr==='home')return homeHTML();
+ if(scr==='hub')return hubHTML();
+ if(scr==='chat')return p==='priya'?priyaHTML():chatHTML();
+ if(scr==='detail')return detailHTML();
+ if(scr==='brief')return briefHTML();
+ if(scr==='admin')return adminHTML();
+ return homeHTML();
+}
+function render(){
+ renderStage();
+ var app=$('#app');
+ var sc=app.querySelector('.scroll'),pb=app.querySelector('#pbody');
+ var prev=sc?{top:sc.scrollTop,key:sc.getAttribute('data-key')}:null;
+ var pprev=pb?pb.scrollTop:0;
+ var vis=S.persona==='maya'&&S.ui.maya.screen==='chat'&&S.panel;
+ app.className='app'+(vis?' p-open':'');
+ app.innerHTML=railHTML()+'<main class="main">'+mainHTML()+'</main>'+panelHTML()+modalHTML();
+ var sc2=app.querySelector('.scroll');
+ if(sc2){
+  if(S.stick||(sc2.getAttribute('data-bottom')==='1'&&(!prev||prev.key!==sc2.getAttribute('data-key')))){sc2.scrollTop=sc2.scrollHeight}
+  else if(prev&&prev.key===sc2.getAttribute('data-key'))sc2.scrollTop=prev.top;
+ }
+ var pb2=app.querySelector('#pbody');if(pb2)pb2.scrollTop=pprev;
+ S.stick=false;
+ var ta=$('#ct');
+ if(ta){ta.value=S.text[S.persona]||'';autosize(ta);if(S.focus){ta.focus();var l=ta.value.length;ta.setSelectionRange(l,l)}}
+ S.focus=false;
+ renderCoach();
+}
+function autosize(t){t.style.height='auto';t.style.height=Math.min(t.scrollHeight,160)+'px'}
+
+/* ---------- guided tour ---------- */
+var STEPS=[
+ {p:'maya',sw:'Switch to Maya to start the handoff.',done:function(){return S.flags.modeUsed||S.draft.status!=='none'},
+  target:function(){return S.ui.maya.screen==='home'?'[data-coach=chip-handoff]':'[data-coach=rail-home]'},
+  text:function(){return S.ui.maya.screen==='home'?'Start here. Click Handoff, or type /handoff in the box.':'Go back to Home to start a handoff.'}},
+ {p:'maya',sw:'Switch to Maya to start the handoff.',done:function(){return S.draft.status!=='none'},
+  target:function(){if(S.ui.maya.screen!=='home')return '[data-coach=rail-home]';if(!S.mode.maya)return '[data-coach=chip-handoff]';return ((S.text.maya||'').trim()?'[data-coach=send]':'[data-coach=suggest]')},
+  text:function(){if(S.ui.maya.screen!=='home')return 'Go back to Home to start a handoff.';if(!S.mode.maya)return 'Click Handoff to switch the assistant into handoff mode.';return (S.text.maya||'').trim()?'Send it.':'Use the suggested request.'}},
+ {p:'maya',sw:'Switch to Maya.',info:true,flag:'swOk',done:function(){return S.flags.swOk||reviewedCount()>0||S.released},when:function(){return S.draft.status==='ready'&&S.ui.maya.screen==='chat'},
+  target:function(){return '[data-coach=showwork]'},text:function(){return 'Open Show work to see what Beacon searched, and which sources Dev can and cannot open.'}},
+ {p:'maya',sw:'Switch to Maya to review the brief.',done:function(){return reviewedCount()===S.items.length},when:function(){return S.draft.status==='ready'&&S.panel&&S.ui.maya.screen==='chat'},
+  target:function(){return '[data-coach=keep-first]'},text:function(){return 'Review every item: keep, edit or remove. The locked item shows what Dev will not see.'}},
+ {p:'maya',sw:'Finish the handoff as Maya first.',done:function(){return S.released},when:function(){return S.panel&&S.ui.maya.screen==='chat'},
+  target:function(){return '[data-coach=release]'},text:function(){return 'Release shares only what you approved. Dev’s access is checked each time he opens it.'}},
+ {p:'dev',sw:'Switch to Dev to see what he receives.',done:function(){return S.flags.devOpened},
+  target:function(){return '[data-coach=bell]'},text:function(){return 'Dev gets a notification. Open it.'}},
+ {p:'dev',sw:'Switch to Dev.',info:true,flag:'lockOk',done:function(){return S.flags.lockOk||S.flags.askedQ||S.items.some(function(i){return i.devStatus!=='new'})},when:function(){return S.ui.dev.screen==='brief'&&!!document.querySelector('[data-coach=locked-card]')},
+  target:function(){return '[data-coach=locked-card]'},text:function(){return 'Dev sees a locked marker, not the content. Access is re-checked on every open.'}},
+ {p:'dev',sw:'Switch to Dev.',done:function(){return S.flags.askedQ},when:function(){return S.ui.dev.screen==='brief'},
+  target:function(){return '[data-coach=ask-1]'},text:function(){return 'Ask the assistant. It answers only from sources Dev can open. Try the restricted item too.'}},
+ {p:'dev',sw:'Switch to Dev.',done:function(){return S.items.some(function(i){return i.devStatus!=='new'})},when:function(){return S.ui.dev.screen==='brief'},
+  target:function(){return '[data-coach=accept-first]'},text:function(){return 'Accept an item to take ownership, or send it back to Maya with a question.'}},
+ {p:'priya',sw:'Switch to Priya, who was waiting on the quote.',done:function(){return S.priyaNote||!S.notes[0].send},
+  target:function(){return '[data-coach=bell]'},text:function(){return 'Priya was waiting on the quote. She gets the note Maya approved.'}},
+ {p:'priya',sw:'Switch to Priya.',done:function(){return S.flags.priyaAsked},when:function(){return S.ui.priya.screen==='chat'||S.ui.priya.screen==='home'},
+  target:function(){return '[data-coach=priya-ask]'},text:function(){return 'She asks who owns the quote. The answer uses only the approved note.'}},
+];
+function curStep(){for(var i=0;i<STEPS.length;i++){if(!STEPS[i].done())return STEPS[i]}return null}
+function renderCoach(){
+ var el=$('#coach');
+ Array.prototype.forEach.call(document.querySelectorAll('.coach-target'),function(n){n.classList.remove('coach-target')});
+ if(!S.tour){el.hidden=true;return}
+ var st=curStep();
+ if(!st){el.hidden=true;return}
+ var sel,text;
+ if(st.p!==S.persona){sel='[data-persona="'+st.p+'"]';text=st.sw}
+ else{
+  if(st.when&&!st.when()){el.hidden=true;return}
+  sel=st.target();text=st.text();
+ }
+ var t=document.querySelector(sel);
+ if(!t){el.hidden=true;return}
+ t.classList.add('coach-target');
+ var key=sel+text;
+ if(S.lastStep!==key){S.lastStep=key;if(t.scrollIntoView)try{t.scrollIntoView({block:'nearest'})}catch(e){}}
+ el.innerHTML='<div>'+esc(text)+'</div>'+((st.info&&st.p===S.persona)?'<button data-act="coach-next">Next</button>':'');
+ el.hidden=false;el.classList.remove('above');
+ var r=t.getBoundingClientRect(),w=268,h=el.offsetHeight;
+ var left=Math.max(12,Math.min(window.innerWidth-w-12,r.left+r.width/2-w/2));
+ var top=r.bottom+14;
+ if(top+h>window.innerHeight-8){top=Math.max(8,r.top-h-14);el.classList.add('above')}
+ el.style.left=left+'px';el.style.top=top+'px';
+ el.style.setProperty('--ax',Math.max(14,Math.min(w-26,r.left+r.width/2-left-6))+'px');
+}
+var rq=0;function queueCoach(){if(rq)return;rq=requestAnimationFrame(function(){rq=0;renderCoach()})}
+window.addEventListener('resize',queueCoach);
+document.addEventListener('scroll',queueCoach,true);
+
+/* ---------- flows ---------- */
+function setMode(on){
+ var p=S.persona;S.mode[p]=on;
+ if(on){S.flags.modeUsed=true;S.ui[p].screen='home'}
+ S.focus=true;render();
+}
+function startDraft(text){
+ S.userText=text;S.draft={status:'working',steps:0,words:0};S.status='draft';S.ui.maya.screen='chat';S.showWork=true;S.panel=false;S.mode.maya=false;S.text.maya='';S.flags.modeUsed=true;
+ L('Maya Okafor','Started a handoff to Dev Raman');S.stick=true;render();
+ var total=DSTEPS.length,i;
+ for(i=1;i<=total;i++)(function(n){later(function(){S.draft.steps=n;S.stick=true;render()},n*560)})(i);
+ later(function(){S.showWork=false;render()},total*560+500);
+ var t0=total*560+700,ns=Math.ceil(ANS_WORDS/3),k;
+ for(k=1;k<=ns;k++)(function(n){later(function(){S.draft.words=Math.min(ANS_WORDS,n*3);S.stick=true;render()},t0+n*45)})(k);
+ later(function(){S.draft.status='ready';S.draft.words=ANS_WORDS;S.panel=true;L('Beacon','Drafted a brief from 11 sources. 1 source is restricted for Dev.');S.stick=true;render()},t0+ns*45+300);
+}
+function submit(){
+ var p=S.persona,scr=S.ui[p].screen,txt=(S.text[p]||'').trim();
+ if(txt.indexOf('/handoff')===0){S.mode[p]=true;S.flags.modeUsed=true;txt=txt.replace('/handoff','').trim();S.text[p]=txt;if(!txt){S.focus=true;render();return}}
+ if(p==='dev'&&scr==='brief'){S.text.dev='';askDev(txt);return}
+ if(p==='priya'){S.text.priya='';askPriya(txt||PQ.owner);return}
+ if(S.mode[p]){
+  if(S.paused){toast('Handoff is paused by an admin.');return}
+  if(p!=='maya'){toast('This prototype runs the handoff from Maya’s side. Switch to Maya.');return}
+  if(S.draft.status!=='none'){toast('You already have a handoff in progress.');return}
+  startDraft(txt||SUGGEST);return;
+ }
+ if(!txt)return;
+ if(p==='maya'&&scr==='chat'&&S.draft.status==='ready'){
+  S.text.maya='';S.extra.push({role:'user',text:txt});S.extra.push({role:'assistant',text:'In this prototype, edit items directly in the brief on the right.'});S.stick=true;render();return;
+ }
+ S.text[p]='';render();
+ toast('This prototype covers Handoff. Use the Handoff chip or type /handoff.');
+}
+function askDev(q){
+ if(!q)return;
+ var k=devAnswerKey(q),idx=S.devQA.length;
+ S.devQA.push({q:q,pending:true,a:[],src:[],note:''});S.flags.askedQ=true;S.stick=true;render();
+ later(function(){
+  var o=k?QS[k]:{a:['I can answer from the sources in this brief that you can open. Try one of the suggested questions.'],src:[],note:''};
+  S.devQA[idx]={q:q,a:o.a,src:o.src,note:o.note};
+  if(k==='locked'){S.flags.lockQ=true;L('Dev Raman','Asked about the restricted item. Answer withheld, 0 sources used')}
+  else if(k)L('Dev Raman','Asked a question. Answer used '+o.src.length+' sources Dev can open, 0 restricted sources');
+  S.stick=true;render();
+ },700);
+}
+function askPriya(q){
+ var idx=S.priyaQA.length;
+ S.ui.priya.screen='chat';
+ S.priyaQA.push({q:q,pending:true,a:[],src:[],note:''});S.flags.priyaAsked=true;S.stick=true;render();
+ later(function(){
+  var o=priyaAnswer();
+  S.priyaQA[idx]={q:q,a:o.a,src:o.src,note:o.note};
+  L('Priya Nair','Asked who owns the quote. Answer used the approved note only, no brief content');
+  S.stick=true;render();
+ },700);
+}
+function reset(){
+ S.gen++;timers.forEach(clearTimeout);timers=[];
+ var tour=S.tour;S=initState();S.gen=(S.gen||0)+1;S.tour=tour;
+ render();
+}
+function findItem(id){return S.items.filter(function(i){return i.id===id})[0]}
+
+/* ---------- actions ---------- */
+function act(a,arg,el){
+ var p=S.persona,it;
+ switch(a){
+  case 'na':toast('Not part of this prototype.');break;
+  case 'persona':S.persona=arg;S.bell=false;S.modal=null;render();break;
+  case 'tour':S.tour=!S.tour;render();break;
+  case 'reset':reset();break;
+  case 'coach-next':var st=curStep();if(st&&st.flag){S.flags[st.flag]=true}render();break;
+  case 'nav':S.ui[p].screen=arg;S.bell=false;S.drawer=null;render();break;
+  case 'chip-handoff':if(S.paused){toast('Handoff is paused by an admin.');break}setMode(true);break;
+  case 'mode-off':S.mode[p]=false;S.focus=true;render();break;
+  case 'slash-handoff':S.text[p]='';if(S.paused){toast('Handoff is paused by an admin.');render();break}setMode(true);break;
+  case 'start-handoff':if(S.paused){toast('Handoff is paused by an admin.');break}setMode(true);break;
+  case 'suggest':S.text.maya=SUGGEST;S.focus=true;render();break;
+  case 'send':submit();break;
+  case 'toggle-sw':S.showWork=!S.showWork;if(S.showWork&&S.draft.status==='ready')S.flags.swOk=true;render();break;
+  case 'toggle-panel':S.panel=!S.panel;render();break;
+  case 'close-panel':S.panel=false;render();break;
+  case 'open-chat':S.ui.maya.screen='chat';render();break;
+  case 'open-detail':S.ui.maya.screen='detail';render();break;
+  case 'keep':it=findItem(arg);it.decision='keep';it.editing=false;render();break;
+  case 'remove':it=findItem(arg);it.decision='removed';it.editing=false;render();break;
+  case 'undo':it=findItem(arg);it.decision=null;render();break;
+  case 'edit':findItem(arg).editing=true;render();break;
+  case 'cancel-edit':findItem(arg).editing=false;render();break;
+  case 'save-edit':it=findItem(arg);var w=document.getElementById('ew-'+arg),g=document.getElementById('eg-'+arg);if(w)it.why=w.value.trim()||it.why;if(g)it.callouts=g.value.trim()||it.callouts;it.edited=true;it.editing=false;it.decision='keep';render();break;
+  case 'req-access-sender':it=findItem(arg);it.access=!it.access;if(it.access){L('Maya Okafor','Requested access to #deal-desk-private for Dev Raman from Legal');toast('Request sent to Legal. Dev’s access stays unchanged until they approve.')}render();break;
+  case 'release-open':S.modal={type:'release'};render();break;
+  case 'modal-close':S.modal=null;render();break;
+  case 'release-confirm':
+   var kept=S.items.filter(function(i){return i.decision==='keep'}).length,ed=S.items.filter(function(i){return i.edited&&i.decision==='keep'}).length,rm=S.items.filter(function(i){return i.decision==='removed'}).length;
+   var real=shareCount(),mk=markerCount(),nn=S.notes.filter(function(n){return n.send}).length;
+   S.released=true;S.status='live';S.modal=null;
+   L('Maya Okafor','Reviewed '+S.items.length+' items: '+kept+' kept ('+ed+' edited), '+rm+' removed');
+   L('Maya Okafor','Released to Dev Raman: '+real+' items, '+mk+' locked marker, '+nn+' notes');
+   L('Beacon','Notified Dev Raman'+(nn?' and '+nn+' waiting '+(nn>1?'people':'person'):''));
+   S.extra.push({role:'assistant',text:'Released. Dev can open '+real+' items'+(mk?' and sees a locked marker for 1':'')+'. '+nn+' waiting '+(nn===1?'person was':'people were')+' notified. You can revoke access at any time from Handoff.',btn:'View status'});
+   S.stick=true;toast('Released to Dev Raman.');render();break;
+  case 'reply-send':
+   it=findItem(arg);var rp=document.getElementById('rp-'+arg);var rt=rp&&rp.value.trim();
+   if(!rt){toast('Write a reply first.');break}
+   it.reply=rt;it.devStatus='new';it.flagText='';L('Maya Okafor','Replied to Dev about: '+it.title);toast('Reply sent to Dev.');render();break;
+  case 'bell':S.bell=!S.bell;render();break;
+  case 'notif':
+   S.bell=false;
+   if(arg==='dev'){openBrief()}
+   else if(arg==='priya'){S.priyaNote=true;S.flags.priyaNote=true;S.ui.priya.screen='chat';L('Priya Nair','Opened the note about the Halvorsen renewal');S.stick=true;render()}
+   else{S.ui.maya.screen='detail';render()}
+   break;
+  case 'open-brief':openBrief();break;
+  case 'toggle-access':S.accessOpen=!S.accessOpen;render();break;
+  case 'save-copy':
+   if(S.savedCopy){toast('Already saved to Content.');break}
+   S.savedCopy=true;L('Dev Raman','Saved a dated copy (Nov 10) to Content');toast('Saved a dated copy to your Content. It will not update.');render();break;
+  case 'dev-accept':
+   it=findItem(arg);it.devStatus='accepted';L('Dev Raman','Accepted item: '+it.title);
+   if(shareCount()>0&&acceptedCount()===shareCount()){S.status='closed';L('Beacon','All items accepted. Handoff closed.');toast('Handoff closed. Maya was told.')}
+   render();break;
+  case 'dev-flag':var pp=arg.split(':');S.modal={type:'flag',kind:pp[0],id:pp[1]};render();break;
+  case 'flag-confirm':
+   var ft=document.getElementById('flagtext');it=findItem(S.modal.id);
+   it.devStatus=S.modal.kind;it.flagText=(ft&&ft.value.trim())||'Please check this item.';
+   L('Dev Raman',(S.modal.kind==='flagged'?'Flagged as wrong or stale: ':'Sent back to Maya: ')+it.title);S.modal=null;toast('Sent to Maya.');render();break;
+  case 'req-access-dev':it=findItem(arg);it.access=!it.access;if(it.access){L('Dev Raman','Requested access to the restricted source from Legal and Deal Desk');toast('Request sent. Your access does not change until they approve.')}render();break;
+  case 'ask-chip':askDev(QS[arg].q);break;
+  case 'priya-q':askPriya(PQ[arg]);break;
+  case 'src':toast('Opens “'+SRC[arg].l+'” in its source app. Not part of this prototype.');break;
+  case 'admin-row':S.drawer=arg;if(arg==='main')S.flags.openedLog=true;render();break;
+  case 'drawer-close':S.drawer=null;render();break;
+  case 'pause':
+   S.paused=!S.paused;L('Noor Haddad',S.paused?'Paused Handoff for everyone':'Turned Handoff back on');toast(S.paused?'Handoff paused for everyone.':'Handoff is on.');render();break;
+  case 'revoke-open':S.modal={type:'revoke',from:arg};render();break;
+  case 'revoke-confirm':
+   S.status='revoked';S.modal=null;L(p==='noor'?'Noor Haddad':'Maya Okafor','Revoked access. Dev Raman and Priya Nair were notified.');toast('Access revoked.');render();break;
+ }
+}
+function openBrief(){
+ S.ui.dev.screen='brief';S.flags.devOpened=true;S.bell=false;
+ if(!S.paused&&S.status!=='revoked'){
+  S.flags.lockSeen=true;
+  var real=shareCount(),mk=markerCount();
+  L('Dev Raman','Opened the brief. Access re-checked: '+real+' items shown, '+mk+' locked');
+ }
+ S.stick=false;render();
+}
+
+/* ---------- events ---------- */
+document.addEventListener('click',function(e){
+ if(S.bell&&!e.target.closest('.bellwrap')){S.bell=false;render()}
+ var el=e.target.closest('[data-act]');
+ if(!el)return;
+ var a=el.getAttribute('data-act');
+ if(el.tagName==='TR'&&e.target.closest('button,a'))return;
+ act(a,el.getAttribute('data-arg'),el);
+});
+document.addEventListener('input',function(e){
+ var t=e.target;
+ if(t.id==='ct'){
+  S.text[S.persona]=t.value;autosize(t);
+  var sl=$('#slash');
+  if(sl){
+   var v=t.value,show=v.charAt(0)==='/'&&v.indexOf(' ')<0,any=false;
+   Array.prototype.forEach.call(sl.querySelectorAll('.sitem'),function(b){var ok=show&&b.getAttribute('data-cmd').indexOf(v)===0;b.style.display=ok?'':'none';if(ok)any=true});
+   sl.hidden=!(show&&any);
+  }
+  queueCoach();
+ }
+ if(t.hasAttribute&&t.hasAttribute('data-note-text'))S.notes[+t.getAttribute('data-note-text')].text=t.value;
+});
+document.addEventListener('change',function(e){
+ var t=e.target;
+ if(t.hasAttribute('data-note-send')){S.notes[+t.getAttribute('data-note-send')].send=t.checked}
+ if(t.hasAttribute('data-filter')){S.filter=t.value;render()}
+});
+document.addEventListener('keydown',function(e){
+ var t=e.target;
+ if(e.key==='Escape'){if(S.modal){S.modal=null;render()}else if(S.drawer){S.drawer=null;render()}}
+ if(t.id==='ct'&&e.key==='Enter'&&!e.shiftKey){
+  e.preventDefault();
+  var sl=$('#slash'),v=t.value;
+  if(sl&&!sl.hidden&&v.charAt(0)==='/'&&v.indexOf(' ')<0&&'/handoff'.indexOf(v)===0){act('slash-handoff');return}
+  submit();
+ }
+});
+
+render();
+})();
+</script>
+</body>
+</html>
